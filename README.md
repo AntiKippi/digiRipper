@@ -25,6 +25,12 @@ The parameter `CLEANUP` just specifies if the downloaded files should be removed
 
 If you have set all parameters you can now download your book by just running the script. This will create a PDF file containing the book in the directory specified by the `OUTPUT_DIRECTORY` variable.
 
+## Dependencies
+
+The script depends on the following programs:
+- `wget` - Downloading the content from the website
+- `rsvg-convert` - Combining the downloaded SVG files into a PDF
+
 ## Bugs
 
 If you find a bug please just create a issue at this repository.
