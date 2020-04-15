@@ -10,17 +10,17 @@
 # --- BEGIN CONFIG ---
 
 # Book name used for the name of the pdf file
-BOOK_NAME="Test"
+BOOK_NAME=''
 
 # book id, as in the url (after '/ebook/')
 # (note that this is usually just one number, for example 2453), but it can also be muliple, like 2366/1)
-BOOK_ID=819
+BOOK_ID=
 
 # Number of pages
-PAGES=10
+PAGES=
 
 # paste your cookie (from your logged in browser page) between the two single quotes below
-COOKIE='digi4b="1634726513%2c819%2c0%2c0%20{558%201586971556%20CAAA0AEA37850F9C195F5F9D291221FF7C454332}"; ad_session_id="1634560363%2c0%2c0%2c1586964429%20{375%201586965629%201AA16406BE9682001EE7E13CE6F2BCA00BC40A2F}"'
+COOKIE=''
 
 # Directory to which files should be downloaded
 OUTPUT_DIRECTORY="/tmp/digi4school/$BOOK_ID"
