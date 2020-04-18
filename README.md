@@ -19,7 +19,9 @@ NOTE: You have to adapt the `COOKIE` parameter for every book you download.
 The parameter `OUTPUT_DIRECTORY` specifies the directory in which the files should be downloaded. The resulting PDF file will also be located in this directory.  The directory should NOT be ended by a trailing /.  
 NOTE: You can use other variables defined above in this parameter. For example if you set the `BOOK_ID` to 1234 then you can use this in the output directory by using `$BOOK_ID`. So `OUTPUT_DIRECTORY="/path/to/book/$BOOK_ID"` will result in `OUTPUT_DIRECTORY="/path/to/book/1234"`.
 
-The parameter `CLEANUP` just specifies if the downloaded files should be removed after the PDF has been created. 0 means "No" and 1 means "Yes".
+The parameter `CLEANUP` specifies if the downloaded files should be removed after the PDF has been created.
+
+The parameter `USE_CACHED` specifies if already downloaded files should be used. This might be faster but can lead to errors if a cached file is invalid, so turn it off if you experience errors.
 
 ### Execution
 
@@ -30,6 +32,7 @@ If you have set all parameters you can now download your book by just running th
 The script depends on the following programs:
 - `wget` - Downloading the content from the website
 - `rsvg-convert` - Combining the downloaded SVG files into a PDF
+- `xmllint` - Validating downloaded SVG files
 
 ## Bugs
 
