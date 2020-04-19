@@ -96,7 +96,7 @@ function download() {
   fi
 
   wget_p "$1"
-  if [ $? != 0 ] || [ ! -f "$OUTPUT_DIRECTORY/$file" ] || [ ! -s "$OUTPUT_DIRECTORY/$BASE_FOLDER/1/1.svg" ]; then
+  if [ $? != 0 ] || [ ! -f "$OUTPUT_DIRECTORY/$file" ] || [ ! -s "$OUTPUT_DIRECTORY/$file" ]; then
     rm -f "$OUTPUT_DIRECTORY/$file" &> /dev/null
     echo -e "$2"
     exit 1
@@ -143,7 +143,6 @@ echo 'Done downloading the pages.'
 echo
 echo 'Downloading embedded images...'
 
-IFS=$'\n'
 for i in $(seq 1 $PAGES); do
   cat "$OUTPUT_DIRECTORY/$BASE_FOLDER/$i/$i.svg" |
   grep -oP 'xlink:href="\K(.*?)\.png(?=")' |
