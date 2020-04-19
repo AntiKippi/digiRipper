@@ -20,7 +20,7 @@ BOOK_ID=
 # Number of pages
 PAGES=
 
-# paste your cookie (from your logged in browser page) between the two single quotes below
+# paste the cookie as it is send in the HTTP header (from your logged in browser page) between the two single quotes below
 COOKIE=''
 
 # Directory to which files should be downloaded
@@ -50,13 +50,6 @@ BASE_FOLDER="$HOST/ebook/$BOOK_ID"
 BASE_URL="$PROTOCOL$BASE_FOLDER"
 COOKIE_TEST_URL="$BASE_URL/1/1.svg"
 
-# Remove http:// or https:// from url to get file name
-COOKIE_TEST_FILE="${COOKIE_TEST_URL/http\:\/\//}"
-COOKIE_TEST_FILE="${COOKIE_TEST_URL/https\:\/\//}"
-COOKIE_TEST_FILE="$OUTPUT_DIRECTORY/$COOKIE_TEST_FILE"
-
-echo $COOKIE_TEST_FILE
-
 interactive=1
 svg_files=""
 
@@ -83,21 +76,34 @@ function wget_p() {
   wget -q --recursive --header="Cookie: $COOKIE" --header="Referer: $PROTOCOL$HOST/" --directory-prefix="$OUTPUT_DIRECTORY" --user-agent="Mozilla/5.0 (Windows NT 10.0; rv:68.0) Gecko/20100101 Firefox/68.0" "$1"
 }
 
+function validate_svg() {
+  xmllint --format "$1" &> /dev/null
+  if [ $? != 0 ]; then
+    rm -f "$1" &> /dev/null
+    echo -e "$2"
+    exit 1
+  fi
+}
+
+#$1: URL, $2: Error message, $3: check svg error message (if empty no check will be done)
 function download() {
   # Remove http:// or https:// from url to get file name
   file="${1/http\:\/\//}"
   file="${file/https\:\/\//}"
 
-
-  if [ $USE_CACHED != 0 ] && [ -f "$OUTPUT_DIRECTORY/$BASE_FOLDER/$i/$i.svg" ]; then
+  if [ $USE_CACHED != 0 ] && [ -f "$OUTPUT_DIRECTORY/$file" ]; then
     return;
   fi
 
   wget_p "$1"
   if [ $? != 0 ] || [ ! -f "$OUTPUT_DIRECTORY/$file" ] || [ ! -s "$OUTPUT_DIRECTORY/$BASE_FOLDER/1/1.svg" ]; then
     rm -f "$OUTPUT_DIRECTORY/$file" &> /dev/null
-    echo "Error downloading \"$1\"!"
+    echo -e "$2"
     exit 1
+  fi
+
+  if [ ! -z "$3" ]; then
+    validate_svg "$OUTPUT_DIRECTORY/$file" "$3"
   fi
 }
 
@@ -116,34 +122,13 @@ mkdir -p "$OUTPUT_DIRECTORY"
 cd "$OUTPUT_DIRECTORY"
 
 # Check if cookie was set correctly
-wget_p "$COOKIE_TEST_URL"
-if [ ! -f "$COOKIE_TEST_FILE" ] || [ ! -s "$COOKIE_TEST_FILE" ]; then
-  rm -f "$COOKIE_TEST_FILE" &> /dev/null
-  echo "Error downloading test file ($COOKIE_TEST_URL)!"
-  echo "Have you set your cookie correctly?"
-  exit 1
-fi
-
-xmllint --format "$COOKIE_TEST_FILE" &> /dev/null
-if [ $? != 0 ]; then
-  rm -f "$COOKIE_TEST_FILE" &> /dev/null
-  echo "ERROR: \"$COOKIE_TEST_FILE\" is no valid SVG file!"
-  echo "Have you set your cookie correctly?"
-  exit 1
-fi
+download "$COOKIE_TEST_URL" "Error downloading test file ($COOKIE_TEST_URL)! \nHave you set your cookie correctly?" \
+         "Error downloading $COOKIE_TEST_FILE: File is no valid SVG file! \nHave you set your cookie correctly?"
 
 echo 'Downloading svg pages...'
 
 for i in $(seq 1 $PAGES); do
-  download "$BASE_URL/$i/$i.svg"
-
-  xmllint --format "$OUTPUT_DIRECTORY/$BASE_FOLDER/$i/$i.svg" &> /dev/null
-  if [ $? != 0 ]; then
-    rm -f "$OUTPUT_DIRECTORY/$BASE_FOLDER/$i/$i.svg"
-    echo "Error downloading $BASE_URL/$i/$i.svg: File is no valid SVG file!"
-    exit 1
-  fi
-
+  download "$BASE_URL/$i/$i.svg" "Error downloading $BASE_URL/$i/$i.svg!" "Error downloading $BASE_URL/$i/$i.svg: File is no valid SVG file!"
   svg_files="$svg_files $OUTPUT_DIRECTORY/$BASE_FOLDER/$i/$i.svg"
   percent=$(( (i * 100) / PAGES ))
   echo -ne "\rProgress: $percent%"
@@ -158,11 +143,12 @@ echo 'Done downloading the pages.'
 echo
 echo 'Downloading embedded images...'
 
+IFS=$'\n'
 for i in $(seq 1 $PAGES); do
   cat "$OUTPUT_DIRECTORY/$BASE_FOLDER/$i/$i.svg" |
   grep -oP 'xlink:href="\K(.*?)\.png(?=")' |
-  for f in $(</dev/stdin); do
-    download "$BASE_URL/$i/$f";
+  while read -r f ; do
+    download "$BASE_URL/$i/$f" "Error downloading \"$BASE_URL/$i/$f\"!";
   done
   percent=$(( (i * 100) / PAGES ))
   echo -ne "\rProgress: $percent%"
