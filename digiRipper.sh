@@ -5,7 +5,7 @@
 # Script to download books from digi4school.at
 #
 # Author: Kippi
-# Version: 1.1
+# Version: 1.2
 ######################################################
 
 # --- BEGIN CONFIG ---
@@ -18,13 +18,14 @@ BOOK_NAME=''
 BOOK_ID=
 
 # Number of pages
+# This is optional, if no value is given the total number of pages of the book will be guessed
 PAGES=
 
 # paste the cookie as it is send in the HTTP header (from your logged in browser page) between the two single quotes below
 COOKIE=''
 
 # Directory to which files should be downloaded
-OUTPUT_DIRECTORY="/tmp/digi4school/$BOOK_ID"
+OUTPUT_DIRECTORY='/tmp/digi4school/$BOOK_ID'
 
 # Define if the downloaded files should be cleaned up after the pdf was created
 # 0 means "No", 1 means "Yes"
@@ -35,47 +36,30 @@ CLEANUP=1
 # 0 means "No", 1 means "Yes"
 USE_CACHED=1
 
+# Define if the script shall promt to start the download
+# 0 means "No", 1 means "Yes"
+INTERACTIVE=1
+
 # --- END CONFIG ---
 
 # DO NOT EDIT BELOW THIS LINE IF YOU DO NOT KNOW WHAT YOU ARE DOING
 
-if [ -z "$PAGES" ] || [ -z "$BOOK_ID" ] || [ -z "$COOKIE" ] || [ -z "$OUTPUT_DIRECTORY" ] || [ -z "$CLEANUP" ] || [ -z "$USE_CACHED" ]; then
-    echo "ERROR: One or more configuration parameters are missing!"
-    exit 1
-fi
 
-PROTOCOL='https://'
-HOST='a.digi4school.at'
-BASE_FOLDER="$HOST/ebook/$BOOK_ID"
-BASE_URL="$PROTOCOL$BASE_FOLDER"
-COOKIE_TEST_URL="$BASE_URL/1/1.svg"
-
-interactive=1
-svg_files=""
-
-OPTIND=1         # Reset in case getopts has been used previously in the shell.
-
-while getopts "sdf" opt; do
-    case "$opt" in
-    s)  # Silent (non-interactive)
-        interactive=0
-        ;;
-    d)  # Dirty (Don't cleanup)
-        CLEANUP=0
-        ;;
-    f)  # Fresh (No cache)
-        USE_CACHED=0
-    esac
-done
-
-shift $((OPTIND-1))
-[ "${1:-}" = "--" ] && shift
-
+function print_help() {
+  echo "USAGE: $(basename $0) [-s] [-d] [-f] [-n <BOOK NAME>] [-i <BOOK ID>] [-c <COOKIE HEADER>] [-o <OUTPUT DIRECTORY] [-p PAGES]"
+  echo
+  echo "  -s  Be silent (non-interactive)"
+  echo "  -d  Be dirty (do not cleanup)"
+  echo "  -f  Use fresh files (do not use cache)"
+  echo 
+  echo "If no arguments are given the default parameters from the config will be used"
+}
 
 function wget_p() {
   wget -q --recursive --header="Cookie: $COOKIE" --header="Referer: $PROTOCOL$HOST/" --directory-prefix="$OUTPUT_DIRECTORY" --user-agent="Mozilla/5.0 (Windows NT 10.0; rv:68.0) Gecko/20100101 Firefox/68.0" "$1"
+  return $? 
 }
-
+      
 function validate_svg() {
   xmllint --format "$1" &> /dev/null
   if [ $? != 0 ]; then
@@ -85,35 +69,98 @@ function validate_svg() {
   fi
 }
 
+# $1: URL
+function get_filepath_from_url() {
+  # Remove http:// or https:// from url to get file name
+  filename="${1/http\:\/\//}"
+  echo "$OUTPUT_DIRECTORY/${filename/https\:\/\//}"
+}
+
 #$1: URL, $2: Error message, $3: check svg error message (if empty no check will be done)
 function download() {
-  # Remove http:// or https:// from url to get file name
-  file="${1/http\:\/\//}"
-  file="${file/https\:\/\//}"
+  file=$(get_filepath_from_url $1)
 
-  if [ $USE_CACHED != 0 ] && [ -f "$OUTPUT_DIRECTORY/$file" ]; then
+  if [ $USE_CACHED != 0 ] && [ -f "$file" ]; then
     return;
   fi
 
   wget_p "$1"
-  if [ $? != 0 ] || [ ! -f "$OUTPUT_DIRECTORY/$file" ] || [ ! -s "$OUTPUT_DIRECTORY/$file" ]; then
-    rm -f "$OUTPUT_DIRECTORY/$file" &> /dev/null
+  errorcode=$?
+  
+  if [ $errorcode == 8 ]; then
+    return $errorcode;
+  fi
+
+  if [ $errorcode != 0 ] || [ ! -f "$file" ] || [ ! -s "$file" ]; then
+    rm -f "$file" &> /dev/null
     echo -e "$2"
     exit 1
   fi
 
   if [ ! -z "$3" ]; then
-    validate_svg "$OUTPUT_DIRECTORY/$file" "$3"
+    validate_svg "$file" "$3"
   fi
 }
 
 
-echo book $BOOK_ID, $PAGES pages
+OPTIND=1         # Reset in case getopts has been used previously in the shell.
+
+while getopts "hsdfn:i:c:o:p:" opt; do
+    case "$opt" in
+    h)  # Print help and exit
+        print_help
+        exit 0
+        ;;
+    s)  # Silent (non-interactive)
+        INTERACTIVE=0
+        ;;
+    d)  # Dirty (Don't cleanup)
+        CLEANUP=0
+        ;;
+    f)  # Fresh (No cache)
+        USE_CACHED=0
+        ;;
+    n)  BOOK_NAME=$OPTARG
+        ;;
+    i)  BOOK_ID=$OPTARG
+        ;;
+    c)  COOKIE=$OPTARG
+        ;;
+    o)  OUTPUT_DIRECTORY=$OPTARG
+        ;;
+    p)  PAGES=$OPTARG
+        ;;
+    esac
+done
+
+shift $((OPTIND-1))
+[ "${1:-}" = "--" ] && shift
+
+if [ -z "$BOOK_ID" ] || [ -z "$COOKIE" ] || [ -z "$OUTPUT_DIRECTORY" ] || [ -z "$CLEANUP" ] || [ -z "$USE_CACHED" ]; then
+    echo "ERROR: One or more configuration parameters are missing!"
+    exit 1
+fi
+
+OUTPUT_DIRECTORY=$(eval echo "$OUTPUT_DIRECTORY")
+PROTOCOL='https://'
+HOST='a.digi4school.at'
+BASE_FOLDER="$HOST/ebook/$BOOK_ID"
+BASE_URL="$PROTOCOL$BASE_FOLDER"
+COOKIE_TEST_URL="$BASE_URL/1/1.svg"
+
+svg_files=""
+
+echo -n "book $BOOK_ID, "
+if [ -z "$PAGES" ]; then
+  echo "all pages"
+else
+  echo "$PAGES pages"
+fi
 echo
 
 # DOWNLOAD PAGES
 
-if (($interactive > 0)); then
+if [ $INTERACTIVE != 0 ]; then
     echo 'Press return to start the download.'
     read
 fi;
@@ -122,17 +169,42 @@ mkdir -p "$OUTPUT_DIRECTORY"
 cd "$OUTPUT_DIRECTORY"
 
 # Check if cookie was set correctly
-download "$COOKIE_TEST_URL" "Error downloading test file ($COOKIE_TEST_URL)! \nHave you set your cookie correctly?" \
-         "Error downloading $COOKIE_TEST_FILE: File is no valid SVG file! \nHave you set your cookie correctly?"
+cookie_test_file=$(get_filepath_from_url $COOKIE_TEST_URL)
+wget_p $COOKIE_TEST_URL
+if [ $? != 0 ] || [ ! -f "$cookie_test_file" ] || [ ! -s "$cookie_test_file" ]; then
+  rm -f "$file" &> /dev/null
+  echo "Error downloading test file ($COOKIE_TEST_URL)!" 
+  echo "Have you set your cookie correctly?"
+  exit 1
+fi
+
+validate_svg $cookie_test_file "Error downloading $COOKIE_TEST_URL: $cookie_test_file is no valid SVG file! \nHave you set your cookie correctly?"
 
 echo 'Downloading svg pages...'
 
-for i in $(seq 1 $PAGES); do
-  download "$BASE_URL/$i/$i.svg" "Error downloading $BASE_URL/$i/$i.svg!" "Error downloading $BASE_URL/$i/$i.svg: File is no valid SVG file!"
-  svg_files="$svg_files $OUTPUT_DIRECTORY/$BASE_FOLDER/$i/$i.svg"
-  percent=$(( (i * 100) / PAGES ))
-  echo -ne "\rProgress: $percent%"
-done
+if [ -z "$PAGES" ]; then
+  i=0
+  while true; do
+    i=$(( i + 1 ))
+    echo -ne "\rProgress: Page $PAGES"
+    download "$BASE_URL/$i/$i.svg" "Error downloading $BASE_URL/$i/$i.svg!" "Error downloading $BASE_URL/$i/$i.svg: File is no valid SVG file!"
+    if [ $? == 8 ]; then
+      break;
+    else
+      PAGES=$i
+      svg_files="$svg_files $OUTPUT_DIRECTORY/$BASE_FOLDER/$i/$i.svg"
+    fi
+  done
+  PAGES=$(( PAGES - 1 ))
+else
+  for i in $(seq 1 $PAGES); do
+    download "$BASE_URL/$i/$i.svg" "Error downloading $BASE_URL/$i/$i.svg!" \
+    "Error downloading $BASE_URL/$i/$i.svg: File is no valid SVG file!"
+    svg_files="$svg_files $OUTPUT_DIRECTORY/$BASE_FOLDER/$i/$i.svg"
+    percent=$(( (i * 100) / PAGES ))
+    echo -ne "\rProgress: $percent%"
+  done
+fi
 
 echo
 echo 'Done downloading the pages.'
@@ -147,7 +219,7 @@ for i in $(seq 1 $PAGES); do
   cat "$OUTPUT_DIRECTORY/$BASE_FOLDER/$i/$i.svg" |
   grep -oP 'xlink:href="\K(.*?)\.png(?=")' |
   while read -r f ; do
-    download "$BASE_URL/$i/$f" "Error downloading \"$BASE_URL/$i/$f\"!";
+    download "$BASE_URL/$i/$f" "Error downloading $BASE_URL/$i/$f!";
   done
   percent=$(( (i * 100) / PAGES ))
   echo -ne "\rProgress: $percent%"
@@ -161,11 +233,11 @@ echo 'Done downloading the images.'
 echo
 echo 'Creating PDF...'
 
-rsvg-convert -f pdf -o "$OUTPUT_DIRECTORY/$BOOK_NAME.pdf" $svg_files
+rsvg-convert -f pdf -o "$OUTPUT_DIRECTORY/$BOOK_NAME.pdf" $svg_files;
 
 if [ $CLEANUP != 0 ]; then
     echo 'Cleaning up...'
     rm -rf "$OUTPUT_DIRECTORY/$HOST"
-fi;
+fi
 
 echo "Done! The PDF has beed saved to \"$OUTPUT_DIRECTORY/$BOOK_NAME.pdf\""
