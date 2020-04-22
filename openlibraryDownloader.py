@@ -5,7 +5,7 @@
 # Script to download all books from digi4school.at open library
 #
 # Author: Kippi
-# Version: 1.0
+# Version: 1.1
 ######################################################
 import subprocess
 import requests
