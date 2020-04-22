@@ -40,26 +40,31 @@ USE_CACHED=1
 # 0 means "No", 1 means "Yes"
 INTERACTIVE=1
 
+# Define if a pdf file containing the book should be created or the files should be just downloaded
+# 0 means "No", 1 means "Yes"
+GENERATE_PDF=1
+
 # --- END CONFIG ---
 
 # DO NOT EDIT BELOW THIS LINE IF YOU DO NOT KNOW WHAT YOU ARE DOING
 
 
 function print_help() {
-  echo "USAGE: $(basename $0) [-s] [-d] [-f] [-n <BOOK NAME>] [-i <BOOK ID>] [-c <COOKIE HEADER>] [-o <OUTPUT DIRECTORY] [-p PAGES]"
+  echo "USAGE: $(basename "$0") [-s] [-d] [-f] [-g] [-n <BOOK NAME>] [-i <BOOK ID>] [-c <COOKIE HEADER>] [-o <OUTPUT DIRECTORY] [-p PAGES]"
   echo
   echo "  -s  Be silent (non-interactive)"
   echo "  -d  Be dirty (do not cleanup)"
   echo "  -f  Use fresh files (do not use cache)"
-  echo 
+  echo "  -g  Do not generate a pdf file (also implies -d)"
+  echo
   echo "If no arguments are given the default parameters from the config will be used"
 }
 
 function wget_p() {
   wget -q --recursive --header="Cookie: $COOKIE" --header="Referer: $PROTOCOL$HOST/" --directory-prefix="$OUTPUT_DIRECTORY" --user-agent="Mozilla/5.0 (Windows NT 10.0; rv:68.0) Gecko/20100101 Firefox/68.0" "$1"
-  return $? 
+  return $?
 }
-      
+
 function validate_svg() {
   xmllint --format "$1" &> /dev/null
   if [ $? != 0 ]; then
@@ -78,26 +83,26 @@ function get_filepath_from_url() {
 
 #$1: URL, $2: Error message, $3: check svg error message (if empty no check will be done)
 function download() {
-  file=$(get_filepath_from_url $1)
+  file=$(get_filepath_from_url "$1")
 
-  if [ $USE_CACHED != 0 ] && [ -f "$file" ]; then
+  if [ $USE_CACHED != 0 ] && [ -s "$file" ]; then
     return;
   fi
 
   wget_p "$1"
   errorcode=$?
-  
-  if [ $errorcode == 8 ]; then
+
+  if [ $errorcode == 8 ] && [ -n "$4" ] && [ "$4" != 0 ]; then
     return $errorcode;
   fi
 
-  if [ $errorcode != 0 ] || [ ! -f "$file" ] || [ ! -s "$file" ]; then
+  if [ $errorcode != 0 ] || [ ! -s "$file" ]; then
     rm -f "$file" &> /dev/null
     echo -e "$2"
     exit 1
   fi
 
-  if [ ! -z "$3" ]; then
+  if [ -n "$3" ]; then
     validate_svg "$file" "$3"
   fi
 }
@@ -105,7 +110,7 @@ function download() {
 
 OPTIND=1         # Reset in case getopts has been used previously in the shell.
 
-while getopts "hsdfn:i:c:o:p:" opt; do
+while getopts "hsdfgn:i:c:o:p:" opt; do
     case "$opt" in
     h)  # Print help and exit
         print_help
@@ -120,6 +125,9 @@ while getopts "hsdfn:i:c:o:p:" opt; do
     f)  # Fresh (No cache)
         USE_CACHED=0
         ;;
+    g)  # Generate no pdf
+        GENERATE_PDF=0
+        ;;
     n)  BOOK_NAME=$OPTARG
         ;;
     i)  BOOK_ID=$OPTARG
@@ -130,13 +138,17 @@ while getopts "hsdfn:i:c:o:p:" opt; do
         ;;
     p)  PAGES=$OPTARG
         ;;
+    *)  echo "Unknown flag: $opt"
+        echo
+        print_help
+        exit 1
     esac
 done
 
 shift $((OPTIND-1))
 [ "${1:-}" = "--" ] && shift
 
-if [ -z "$BOOK_ID" ] || [ -z "$COOKIE" ] || [ -z "$OUTPUT_DIRECTORY" ] || [ -z "$CLEANUP" ] || [ -z "$USE_CACHED" ]; then
+if [ -z "$BOOK_ID" ] || [ -z "$COOKIE" ] || [ -z "$OUTPUT_DIRECTORY" ] || [ -z "$CLEANUP" ] || [ -z "$USE_CACHED" ] || [ -z "$GENERATE_PDF" ];  then
     echo "ERROR: One or more configuration parameters are missing!"
     exit 1
 fi
@@ -147,6 +159,7 @@ HOST='a.digi4school.at'
 BASE_FOLDER="$HOST/ebook/$BOOK_ID"
 BASE_URL="$PROTOCOL$BASE_FOLDER"
 COOKIE_TEST_URL="$BASE_URL/1/1.svg"
+PDF_GENERATION_SCRIPT_NAME="generate-pdf.sh"
 
 svg_files=""
 
@@ -166,19 +179,19 @@ if [ $INTERACTIVE != 0 ]; then
 fi;
 
 mkdir -p "$OUTPUT_DIRECTORY"
-cd "$OUTPUT_DIRECTORY"
+cd "$OUTPUT_DIRECTORY" || (echo "Failed cd to $OUTPUT_DIRECTORY" && exit 1)
 
 # Check if cookie was set correctly
-cookie_test_file=$(get_filepath_from_url $COOKIE_TEST_URL)
-wget_p $COOKIE_TEST_URL
-if [ $? != 0 ] || [ ! -f "$cookie_test_file" ] || [ ! -s "$cookie_test_file" ]; then
+cookie_test_file=$(get_filepath_from_url "$COOKIE_TEST_URL")
+wget_p "$COOKIE_TEST_URL"
+if [ $? != 0 ] || [ ! -s "$cookie_test_file" ]; then
   rm -f "$file" &> /dev/null
-  echo "Error downloading test file ($COOKIE_TEST_URL)!" 
+  echo "Error downloading test file ($COOKIE_TEST_URL)!"
   echo "Have you set your cookie correctly?"
   exit 1
 fi
 
-validate_svg $cookie_test_file "Error downloading $COOKIE_TEST_URL: $cookie_test_file is no valid SVG file! \nHave you set your cookie correctly?"
+validate_svg "$cookie_test_file" "Error downloading $COOKIE_TEST_URL: $cookie_test_file is no valid SVG file! \nHave you set your cookie correctly?"
 
 echo 'Downloading svg pages...'
 
@@ -187,7 +200,7 @@ if [ -z "$PAGES" ]; then
   while true; do
     i=$(( i + 1 ))
     echo -ne "\rProgress: Page $PAGES"
-    download "$BASE_URL/$i/$i.svg" "Error downloading $BASE_URL/$i/$i.svg!" "Error downloading $BASE_URL/$i/$i.svg: File is no valid SVG file!"
+    download "$BASE_URL/$i/$i.svg" "Error downloading $BASE_URL/$i/$i.svg!" "Error downloading $BASE_URL/$i/$i.svg: File is no valid SVG file!" 1
     if [ $? == 8 ]; then
       break;
     else
@@ -198,9 +211,8 @@ if [ -z "$PAGES" ]; then
   PAGES=$(( PAGES - 1 ))
 else
   for i in $(seq 1 $PAGES); do
-    download "$BASE_URL/$i/$i.svg" "Error downloading $BASE_URL/$i/$i.svg!" \
-    "Error downloading $BASE_URL/$i/$i.svg: File is no valid SVG file!"
-    svg_files="$svg_files $OUTPUT_DIRECTORY/$BASE_FOLDER/$i/$i.svg"
+    download "$BASE_URL/$i/$i.svg" "Error downloading $BASE_URL/$i/$i.svg!" "Error downloading $BASE_URL/$i/$i.svg: File is no valid SVG file!"
+    svg_files="$svg_files $BASE_FOLDER/$i/$i.svg"
     percent=$(( (i * 100) / PAGES ))
     echo -ne "\rProgress: $percent%"
   done
@@ -216,8 +228,7 @@ echo
 echo 'Downloading embedded images...'
 
 for i in $(seq 1 $PAGES); do
-  cat "$OUTPUT_DIRECTORY/$BASE_FOLDER/$i/$i.svg" |
-  grep -oP 'xlink:href="\K(.*?)\.png(?=")' |
+  grep -oP 'xlink:href="\K(.*?)\.png(?=")' "$OUTPUT_DIRECTORY/$BASE_FOLDER/$i/$i.svg" |
   while read -r f ; do
     download "$BASE_URL/$i/$f" "Error downloading $BASE_URL/$i/$f!";
   done
@@ -231,13 +242,25 @@ echo 'Done downloading the images.'
 # Convert SVG files to PDF
 
 echo
-echo 'Creating PDF...'
+if [ $GENERATE_PDF != 0 ]; then
+  echo 'Creating PDF...'
 
-rsvg-convert -f pdf -o "$OUTPUT_DIRECTORY/$BOOK_NAME.pdf" $svg_files;
+  rsvg-convert -f pdf -o "$OUTPUT_DIRECTORY/$BOOK_NAME.pdf" $svg_files;
 
-if [ $CLEANUP != 0 ]; then
-    echo 'Cleaning up...'
-    rm -rf "$OUTPUT_DIRECTORY/$HOST"
+  if [ $CLEANUP != 0 ]; then
+      echo 'Cleaning up...'
+      cleanup_dir="$OUTPUT_DIRECTORY/$HOST"
+      rm -rf "${cleanup_dir:?}"
+  fi
+
+  echo "Done! The PDF has beed saved to \"$OUTPUT_DIRECTORY/$BOOK_NAME.pdf\""
+else
+  echo 'Creating PDF creation script...'
+
+  echo "#!/bin/bash" > "$OUTPUT_DIRECTORY/$PDF_GENERATION_SCRIPT_NAME"
+  echo >> "$OUTPUT_DIRECTORY/$PDF_GENERATION_SCRIPT_NAME"
+  echo "rsvg-convert -f pdf -o \"$OUTPUT_DIRECTORY/$BOOK_NAME.pdf\" $svg_files;" >> "$OUTPUT_DIRECTORY/$PDF_GENERATION_SCRIPT_NAME"
+  chmod 755 "$OUTPUT_DIRECTORY/$PDF_GENERATION_SCRIPT_NAME"
+
+  echo "Done! To generate the PDF, run $PDF_GENERATION_SCRIPT_NAME"
 fi
-
-echo "Done! The PDF has beed saved to \"$OUTPUT_DIRECTORY/$BOOK_NAME.pdf\""

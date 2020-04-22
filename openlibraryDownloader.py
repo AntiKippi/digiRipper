@@ -14,14 +14,15 @@ from pyquery import PyQuery
 from pathlib import Path
 
 
-output_dir = os.path.join(os.environ['HOME'], 'Documents', 'digi4school', 'openlibrary')
+output_dir = os.path.join(os.path.abspath(os.sep), 'path', 'to', 'your' 'directory')
+generate_pdf = False
 max_retries = 3
-encoding = "utf-8"
 
 base_url = 'https://digi4school.at/'
 openshelf_path = 'br/openshelf'
 token_path = 'token/'
 target_cookie_name = 'digi4b'
+encoding = "utf-8"
 
 get_all_books_payload = {'title': '%%%', 'publisher_id': '', 'level_of_education': ''}
 headers = {
@@ -66,9 +67,14 @@ for book in books.items():
     Path(current_path).mkdir(parents=True, exist_ok=True)
     print('\n\nDownloading book "' + book_id + "\" (%.2f %%)" % (i * 100 / book_count))
 
-    if os.path.isfile(os.path.join(current_path, title + '.pdf')):
-        print("Found existing PDF, skipping...")
-        continue
+    if generate_pdf:
+        if os.path.isfile(os.path.join(current_path, title + '.pdf')):
+            print("Found existing PDF skipping...")
+            continue
+    else:
+        if os.path.isfile(os.path.join(current_path, 'generate-pdf.sh')):
+            print("Found PDF generation script, skipping...")
+            continue
 
     # Writing info about book
     with open(os.path.join(current_path, "info.txt"), "w", encoding=encoding) as f:
@@ -79,8 +85,8 @@ for book in books.items():
         ]))
         f.close()
 
-    count = 0
-    while count < max_retries:
+    count = 1
+    while count <= max_retries:
         cookie_request = send_form(send_form(requests.get(base_url + token_path + book_id, headers=headers)))
         cookie_str = ''
         for cookie in cookie_request.cookies:
@@ -89,6 +95,16 @@ for book in books.items():
 
         if cookie_str == '':
             print("ERROR: Cookie not found, retrying (%d of %d)" % (count, max_retries))
+            count += 1
+            continue
+
+        if generate_pdf:
+            result = subprocess.run(['./digiRipper.sh', '-s', '-d', '-n', title, '-i', book_id, '-c', cookie_str, '-o', current_path])
+        else:
+            result = subprocess.run(['./digiRipper.sh', '-s', '-g', '-n', title, '-i', book_id, '-c', cookie_str, '-o', current_path])
+
+        if result.returncode != 0:
+            print("ERROR: Error running digiRipper, retrying (%d of %d)" % (count, max_retries))
             count += 1
             continue
 
@@ -104,9 +120,4 @@ for book in books.items():
                 f.write(os.linesep + u"Publisher E-Mail Address: %s" % str(ebook_head('meta[name="publishermail"]').attr['content']))
                 f.close()
 
-        result = subprocess.run(['./digiRipper.sh', '-s', '-d', '-n', title, '-i', book_id, '-c', cookie_str, '-o', current_path])
-        if result.returncode != 0:
-            print("ERROR: Error running digiRipper , retrying (%d of %d)" % (count, max_retries))
-            count += 1
-            continue
-
+        break
