@@ -64,5 +64,5 @@ If you find a bug please just create a issue at this repository.
 Thanks to [sk22](https://gist.github.com/sk22 "GitHub Gist Account of sk22") for inspiration and the base script. My work was made on top of his original script which he published at GitHub Gist. The original script can be viewed here: [https://gist.github.com/sk22/dabddad4af91154c55795568833ef984](https://gist.github.com/sk22/dabddad4af91154c55795568833ef984).
 
 # Open Library Downloader
-I've added a (quick and dirty) python script which uses digiRipper to download the whole digi4school open library. To use the open library donwloader, set the output_directory variable to your behalf and then just run it!  
+I've added a (quick and dirty) python script which uses digiRipper to download the whole digi4school open library. To use the open library donwloader, set the output_directory variable to your behalf and then just run it! Then the whole library including extra material will be downloaded to this directory. If you want to pause and resume at a particular point, just send a USR1 signal to the script, then it will stop at a suitable place. If you want to resume, just run the script again, all files are cached and will not be downloaded a second time.  
 NOTE: You need python in order to run this script!
