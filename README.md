@@ -3,7 +3,23 @@ A small bash script to download books from digi4school in PDF format.
 
 ## Usage:
 
-To use this script you first need to edit the configuration parameters.
+To use this script you first need to edit the configuration parameters or pass command line arguments.
+
+### Command Line Arguments
+
+Usage: `digiRipper.sh [-s] [-d] [-f] [-g] [-n <BOOK NAME>] [-i <BOOK ID>] [-c <COOKIE HEADER>] [-o <OUTPUT DIRECTORY] [-p ]`
+
+`-s`: Be silent (non-interactive)  
+`-d`: Be dirty (do not cleanup)  
+`-f`: Use fresh files (do not use cache)  
+`-g`: Do not generate a pdf file (also implies -d)  
+`-n <BOOK NAME>`: The name of the book, used for the resulting PDF file name.  
+`-i <BOOK ID>]`: The ID of the book you want to download  
+`-c <COOKIE HEADER>`: The cookies as string, as they are send in the header of the http request(see parameter `COOKIE`)  
+`-o <OUTPUT DIRECTORY`: The directory in which the book should be downloaded (see parameter `OUTPUT_DIRECTORY`). WARNING: Because you can use other variables in this parameter, like $BOOK_ID, this value is prone to command injection!  
+`-p <PAGES>`: The number of pages you want to download.
+
+If no arguments are given the default parameters from the config will be used
 
 ### Parameters
 
@@ -11,7 +27,7 @@ The parameter `BOOK_NAME` specifies the name of the book. You can set it arbitra
 
 The parameter `BOOK_ID` is the ID of the book you want to download. It is located in the URL after /ebook/. 
 
-The parameter `PAGES` specifies till which page you want to download this book. If you want to download the whole book press the go to last page button. Then the page count should also be located in the URL (after ?page=).
+The parameter `PAGES` specifies till which page you want to download this book. If you want to download the whole book leave the parameter emtpy. Then the script will try guess the number of pages of the book. Alternatively you can get this value by pressing the go to last page button in the digi4school book. Then the page count should also be located in the URL (after ?page=).
 
 The parameter `COOKIE` is the hardest to set. It specifies the cookies which should be send to the server when downloading the book. To get it in the [Mozilla Firefox](https://www.mozilla.org/firefox/) browser, open the developer tools by pressing <kbd>F12</kbd> and go to the network tab. Then reload the page, select the first request popping up in the section below and search for the 'Cookie' field in the request headers on the right. Click on the value of this field and copy and paste this value into the `COOKIE` parameter.  
 NOTE: You have to adapt the `COOKIE` parameter for every book you download.
@@ -23,9 +39,14 @@ The parameter `CLEANUP` specifies if the downloaded files should be removed afte
 
 The parameter `USE_CACHED` specifies if already downloaded files should be used. This might be faster but can lead to errors if a cached file is invalid, so turn it off if you experience errors.
 
+The parameter `INTERACTIVE` specifies if the script should be interactive or not (prompt for confirmation before starting download)
+
+The parameter `GENERATE_PDF` specifies if a PDF file should be created from the downloaded files. If PDF generation is turned off, a script to generate the pdf file will be placed in the output directory instead.  
+NOTE: This option implies that no cleanup will be done!
+
 ### Execution
 
-If you have set all parameters you can now download your book by just running the script. This will create a PDF file containing the book in the directory specified by the `OUTPUT_DIRECTORY` variable.
+If you have set all parameters you can now download your book by just running the script. This will create a PDF file containing the book in the directory specified by the `OUTPUT_DIRECTORY` variable. You can also pass the values for the parameters via command line arguments.
 
 ## Dependencies
 
