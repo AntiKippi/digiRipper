@@ -10,6 +10,7 @@
 import subprocess
 import requests
 import signal
+import time
 import os
 from pyquery import PyQuery
 from pathlib import Path
@@ -19,6 +20,7 @@ output_dir = os.path.join(os.path.abspath(os.sep), 'path', 'to', 'your' 'directo
 generate_pdf = False
 use_cache = True
 max_retries = 3
+error_timeout = 30
 
 base_url = 'https://digi4school.at/'
 openshelf_path = 'br/openshelf'
@@ -85,6 +87,18 @@ def stop_program():
     exit(0)
 
 
+def print_error(error_msg, retry_count, retry_end):
+    print(error_msg)
+    if retry_count <= max_retries:
+        print("Waiting %d s and retrying (%d of %d)" % (error_timeout, retry_count, max_retries))
+        time.sleep(error_timeout)
+        return retry_end + 1
+    else:
+        print("Error after %d retries, exiting..." % (count - 1))
+        exit(1)
+        return retry_end
+
+
 if output_dir == '':
     output_dir = input("Output directory: ")
 
@@ -134,71 +148,74 @@ for book in books.items():
     if stop:
         stop_program()
 
-    count = 1
-    while count <= max_retries:
-        cookie_request = send_form(send_form(requests.get(base_url + token_path + book_id, headers=headers)))
-        cookie_str = ''
-        for cookie in cookie_request.cookies:
-            if cookie.name == target_cookie_name:
-                cookie_str = cookie.name + '=' + cookie.value + '; '
+    count = 0
+    end = 1
+    while count < end:
+        count += 1
+        try:
+            cookie_request = send_form(send_form(requests.get(base_url + token_path + book_id, headers=headers)))
+            cookie_str = ''
+            for cookie in cookie_request.cookies:
+                if cookie.name == target_cookie_name:
+                    cookie_str = cookie.name + '=' + cookie.value + '; '
 
-        if cookie_str == '':
-            print("ERROR: Cookie not found, retrying (%d of %d)" % (count, max_retries))
-            count += 1
+            if len(cookie_str) < 1:
+                end = print_error('ERROR: Cookie not found!', count, end)
+                continue
+
+            if stop:
+                stop_program()
+
+            location = cookie_request.headers['Location']
+            if len(location) > 0:
+                r = requests.get(location, headers=headers, cookies=cookie_request.cookies)
+                r.encoding = encoding
+                if 'IDRViewer' not in r.text and '<div id="content">' in r.text:
+                    book_id += "/1"
+                    print('Found extra content, setting book_id to ' + str(book_id))
+                    print('Downloading extra content...')
+
+                    book_content = PyQuery(r.text)("#content")
+                    extra_path = os.path.join(current_path, 'extra')
+                    Path(extra_path).mkdir(parents=True, exist_ok=True)
+
+                    # Download root files
+                    for node in book_content('a:not(.sub):not(.directory)').items():
+                        if not str(node.attr['href']).startswith('1/'):
+                            download_content(node, location, cookie_request.cookies, extra_path)
+
+                    # Download content of all root directories
+                    for root_dir_node in book_content('a:not(.sub).directory').items():
+                        root_dir = os.path.join(extra_path, root_dir_node('h1').text().replace('/', '-'))
+                        Path(root_dir).mkdir(parents=True, exist_ok=True)
+                        download_content_from_directory(book_content, root_dir_node.attr['id'], location, cookie_request.cookies, root_dir)
+                    print('Downloaded extra content to "' + extra_path + '"')
+
+                    r = requests.get(location + "1/", headers=headers, cookies=cookie_request.cookies)
+
+                ebook_head = PyQuery(r.text)('head')
+                with open(os.path.join(current_path, "info.txt"), "a", encoding=encoding) as f:
+                    f.write(os.linesep + u"Publisher Homepage: %s" % str(ebook_head('meta[name="publisherweb"]').attr['content']))
+                    f.write(os.linesep + u"Publisher Address: %s" % str(ebook_head('meta[name="publisheradr"]').attr['content']))
+                    f.write(os.linesep + u"Publisher Phone Number: %s" % str(ebook_head('meta[name="publishertel"]').attr['content']))
+                    f.write(os.linesep + u"Publisher E-Mail Address: %s" % str(ebook_head('meta[name="publishermail"]').attr['content']))
+                    f.write(os.linesep + u"SBNr: %s" % str(ebook_head('meta[name="sbnr"]').attr['content']))
+            else:
+                print('WARNING: Can\'t get Location header, skipping check for extra material!')
+
+            if stop:
+                stop_program()
+
+            result = None
+            if generate_pdf:
+                result = subprocess.run(['./digiRipper.sh', '-s', '-d', '-n', title, '-i', book_id, '-c', cookie_str, '-o', current_path])
+            else:
+                result = subprocess.run(['./digiRipper.sh', '-s', '-g', '-n', title, '-i', book_id, '-c', cookie_str, '-o', current_path])
+
+            if result.returncode != 0:
+                end = print_error('ERROR: Error running digiRipper!', count, end)
+                continue
+
+        except Exception as e:
+            end = print_error('ERROR: An exception was thrown: ' + str(e), count, end)
             continue
-
-        if stop:
-            stop_program()
-
-        location = cookie_request.headers['Location']
-        if len(location) > 0:
-            r = requests.get(location, headers=headers, cookies=cookie_request.cookies)
-            r.encoding = encoding
-            if 'IDRViewer' not in r.text and '<div id="content">' in r.text:
-                book_id += "/1"
-                print('Found extra content, setting book_id to ' + str(book_id))
-                print('Downloading extra content...')
-
-                book_content = PyQuery(r.text)("#content")
-                extra_path = os.path.join(current_path, 'extra')
-                Path(extra_path).mkdir(parents=True, exist_ok=True)
-
-                # Download root files
-                for node in book_content('a:not(.sub):not(.directory)').items():
-                    if not str(node.attr['href']).startswith('1/'):
-                        download_content(node, location, cookie_request.cookies, extra_path)
-
-                # Download content of all root directories
-                for root_dir_node in book_content('a:not(.sub).directory').items():
-                    root_dir = os.path.join(extra_path, root_dir_node('h1').text().replace('/', '-'))
-                    Path(root_dir).mkdir(parents=True, exist_ok=True)
-                    download_content_from_directory(book_content, root_dir_node.attr['id'], location, cookie_request.cookies, root_dir)
-                print('Downloaded extra content to "' + extra_path + '"')
-
-                r = requests.get(location + "1/", headers=headers, cookies=cookie_request.cookies)
-
-            ebook_head = PyQuery(r.text)('head')
-            with open(os.path.join(current_path, "info.txt"), "a", encoding=encoding) as f:
-                f.write(os.linesep + u"Publisher Homepage: %s" % str(ebook_head('meta[name="publisherweb"]').attr['content']))
-                f.write(os.linesep + u"Publisher Address: %s" % str(ebook_head('meta[name="publisheradr"]').attr['content']))
-                f.write(os.linesep + u"Publisher Phone Number: %s" % str(ebook_head('meta[name="publishertel"]').attr['content']))
-                f.write(os.linesep + u"Publisher E-Mail Address: %s" % str(ebook_head('meta[name="publishermail"]').attr['content']))
-                f.write(os.linesep + u"SBNr: %s" % str(ebook_head('meta[name="sbnr"]').attr['content']))
-        else:
-            print("WARNING: Can't get Location header, skipping check for extra material!")
-
-        if stop:
-            stop_program()
-
-        result = None
-        if generate_pdf:
-            result = subprocess.run(['./digiRipper.sh', '-s', '-d', '-n', title, '-i', book_id, '-c', cookie_str, '-o', current_path])
-        else:
-            result = subprocess.run(['./digiRipper.sh', '-s', '-g', '-n', title, '-i', book_id, '-c', cookie_str, '-o', current_path])
-
-        if result.returncode != 0:
-            print("ERROR: Error running digiRipper, retrying (%d of %d)" % (count, max_retries))
-            count += 1
-            continue
-
-        break

@@ -99,6 +99,9 @@ function download() {
   if [ $errorcode != 0 ] || [ ! -s "$file" ]; then
     rm -f "$file" &> /dev/null
     echo -e "$2"
+    echo "Exiting..."
+    exit 1
+    exit 1
     exit 1
   fi
 
