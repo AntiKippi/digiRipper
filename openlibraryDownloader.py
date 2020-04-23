@@ -7,6 +7,8 @@
 # Author: Kippi
 # Version: 1.1
 ######################################################
+
+# --- BEGIN IMPORTS (DO NOT EDIT) ---
 import subprocess
 import requests
 import signal
@@ -14,13 +16,28 @@ import time
 import os
 from pyquery import PyQuery
 from pathlib import Path
+# --- END IMPORTS
 
+# --- BEGIN CONFIG ---
 
+# Set the path to which the books should be downloaded
 output_dir = os.path.join(os.path.abspath(os.sep), 'path', 'to', 'your' 'directory')
+
+# Define if additionaly to downloading the files they should be combined in a PDF file 
 generate_pdf = False
+
+# Define if the cached extra files should be used
 use_cache = True
+
+# Define how often the script should retry after an error occures
 max_retries = 3
+
+# Define how long the script should wait after an error occured
 error_timeout = 30
+
+# --- END CONFIG ---
+
+# DO NOT EDIT BELOW THIS LINE IF YOU DO NOT KNOW WHAT YOU ARE DOING
 
 base_url = 'https://digi4school.at/'
 openshelf_path = 'br/openshelf'

@@ -64,5 +64,26 @@ If you find a bug please just create a issue at this repository.
 Thanks to [sk22](https://gist.github.com/sk22 "GitHub Gist Account of sk22") for inspiration and the base script. My work was made on top of his original script which he published at GitHub Gist. The original script can be viewed here: [https://gist.github.com/sk22/dabddad4af91154c55795568833ef984](https://gist.github.com/sk22/dabddad4af91154c55795568833ef984).
 
 # Open Library Downloader
-I've added a (quick and dirty) python script which uses digiRipper to download the whole digi4school open library. To use the open library donwloader, set the output_directory variable to your behalf and then just run it! Then the whole library including extra material will be downloaded to this directory. If you want to pause and resume at a particular point, just send a USR1 signal to the script, then it will stop at a suitable place. If you want to resume, just run the script again, all files are cached and will not be downloaded a second time.  
+The Open Library Downloader is a python script which uses digiRipper to download the whole digi4school open library.  
 NOTE: You need python in order to run this script!
+
+## Usage
+To use the open library donwloader, set the output_directory variable to your behalf and then just run it! You may also change other configuration parameters, like the error timeout. 
+
+### Parameters
+
+`output_dir`: Specifies the path into which all the books should be downloaded.
+
+`generate_pdf`: Defines if after the files have been downloaded, a PDF should be generated. Note that this consumes a good amount of disk space and also time. Also, because sometimes the generated PDF looks kinda weird, all files used to create it will remain on the disk so that you can recreate it better if you want.
+
+`use_cache`: Defines if the extra files should be always downloaded or only if they do not exist. Note that this parameter only affects the extra files, the digiRipper cache will always be used.
+
+`max_retries`: Define how often the script should retry the operation after an error occured.
+
+`error_timeout`: Define how long the script should wait after it encountered an error. This is particulary useful, because sometimes the error is a simple network error which will resolve itself in a few seconds. 
+
+### Execution
+After you have set the configuration parameters correctly and run the script the whole library including extra material will be downloaded to the output directory. If you want to pause and resume at a particular point, just send a USR1 signal to the script, then it will stop at a suitable place. If you want to resume, just run the script again, all files are cached (if cache is enabled) and will not be downloaded a second time.
+
+# Disclaimer
+All the scripts here are only provied for educational purposes. Usage of them could be legally disallowed in your county, so always check your local law. I am not responsible for anything **you** decide to do with my scripts.
