@@ -99,9 +99,6 @@ function download() {
   if [ $errorcode != 0 ] || [ ! -s "$file" ]; then
     rm -f "$file" &> /dev/null
     echo -e "$2"
-    echo "Exiting..."
-    exit 1
-    exit 1
     exit 1
   fi
 
@@ -231,10 +228,9 @@ echo
 echo 'Downloading embedded images...'
 
 for i in $(seq 1 $PAGES); do
-  grep -oP 'xlink:href="\K(.*?)\.png(?=")' "$OUTPUT_DIRECTORY/$BASE_FOLDER/$i/$i.svg" |
   while read -r f ; do
     download "$BASE_URL/$i/$f" "Error downloading $BASE_URL/$i/$f!";
-  done
+  done < <(grep -oP 'xlink:href="\K(.*?)\.png(?=")' "$OUTPUT_DIRECTORY/$BASE_FOLDER/$i/$i.svg")
   percent=$(( (i * 100) / PAGES ))
   echo -ne "\rProgress: $percent%"
 done
