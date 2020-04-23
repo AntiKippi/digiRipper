@@ -39,6 +39,7 @@ error_timeout = 30
 
 # DO NOT EDIT BELOW THIS LINE IF YOU DO NOT KNOW WHAT YOU ARE DOING
 
+
 base_url = 'https://digi4school.at/'
 openshelf_path = 'br/openshelf'
 token_path = 'token/'
@@ -104,15 +105,14 @@ def stop_program():
     exit(0)
 
 
-def print_error(error_msg, retry_count, retry_end):
+def handle_error(error_msg, retry_count, retry_end):
     print(error_msg)
     if retry_count <= max_retries:
         print("Waiting %d s and retrying (%d of %d)" % (error_timeout, retry_count, max_retries))
         time.sleep(error_timeout)
         return retry_end + 1
     else:
-        print("Error after %d retries, exiting..." % (count - 1))
-        exit(1)
+        print("Error after %d retries, skipping book..." % (count - 1))
         return retry_end
 
 
@@ -177,7 +177,7 @@ for book in books.items():
                     cookie_str = cookie.name + '=' + cookie.value + '; '
 
             if len(cookie_str) < 1:
-                end = print_error('ERROR: Cookie not found!', count, end)
+                end = handle_error('ERROR: Cookie not found!', count, end)
                 continue
 
             if stop:
@@ -230,9 +230,9 @@ for book in books.items():
                 result = subprocess.run(['./digiRipper.sh', '-s', '-g', '-n', title, '-i', book_id, '-c', cookie_str, '-o', current_path])
 
             if result.returncode != 0:
-                end = print_error('ERROR: Error running digiRipper!', count, end)
+                end = handle_error('ERROR: Error running digiRipper!', count, end)
                 continue
 
         except Exception as e:
-            end = print_error('ERROR: An exception was thrown: ' + str(e), count, end)
+            end = handle_error('ERROR: An exception was thrown: ' + str(e), count, end)
             continue
