@@ -59,7 +59,7 @@ The script depends on the following programs:
 
 If you find a bug please just create a issue at this repository.
 
-## Contributions
+## Credits
 
 Thanks to [sk22](https://gist.github.com/sk22 "GitHub Gist Account of sk22") for inspiration and the base script. My work was made on top of his original script which he published at GitHub Gist. The original script can be viewed here: [https://gist.github.com/sk22/dabddad4af91154c55795568833ef984](https://gist.github.com/sk22/dabddad4af91154c55795568833ef984).
 
@@ -68,7 +68,11 @@ The Open Library Downloader is a python script which uses digiRipper to download
 NOTE: You need python in order to run this script!
 
 ## Usage
-To use the open library donwloader, set the output_directory variable to your behalf and then just run it! You may also change other configuration parameters, like the error timeout. 
+To use the open library downloader, set the output_directory variable to your behalf and then just run it! You may also change other configuration parameters, like the error timeout. 
+
+### Command Line Arguments
+
+To learn more about the available command line arguments, run `openlibraryDownloader.py -h`
 
 ### Parameters
 
