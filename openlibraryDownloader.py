@@ -219,7 +219,7 @@ def main():
     input('Press [ENTER] to start the download')
 
     if start > 0:
-        print('\nSkipping first ' + start + ' %...')
+        print("\nSkipping first %.2f %%..." % start)
 
     i = 0
     for book in books.items():
@@ -233,7 +233,7 @@ def main():
             continue
 
         if percent > end_percent:
-            print('Stopping at ' + end_percent + ' %...')
+            print("Stopping at %.2f %% ..." % end_percent)
             break
 
         book_id = book.attr['data-id']
@@ -303,11 +303,11 @@ def main():
                         # Download root files
                         for node in book_content('a:not(.sub):not(.directory)').items():
                             if not str(node.attr['href']).startswith('1/'):
-                                download_content(node, location, cookie_request.cookies, extra_path)
-                            else:
                                 thumbnail_location = str(node('img').attr['src'])
                                 if thumbnail_location.endswith('thumbnails/1.jpg') and not thumbnail_location.startswith('http'):
                                     extra_books.append([str(node.attr['href']).replace('/index.html', ''), node('h1').text().replace('/', '-')])
+                                else:
+                                    download_content(node, location, cookie_request.cookies, extra_path)
 
                         if stop:
                             stop_program()
@@ -323,11 +323,11 @@ def main():
 
                         for extra_book in extra_books:
                             print('Downloading extra book "' + extra_book[0] + '"...')
-                            r = requests.get(location + extra_book[0] + '/', headers=headers, cookie=cookie_request.cookies)
+                            r = requests.get(location + extra_book[0] + '/', headers=headers, cookies=cookie_request.cookies)
                             if 'IDRViewer' not in r.text:
                                 print('WARNING: Extra book "' + extra_book[0] + '" looks weird (contains no "IDRViewer"! Skipping...')
                                 continue
-                            if download_book(extra_book[1], extra_book[0], cookie_str, os.path.join(extra_path, extra_book[1]), r).returncode != 0:
+                            if download_book(extra_book[1], orig_book_id + '/' + extra_book[0], cookie_str, os.path.join(extra_path, extra_book[1]), r).returncode != 0:
                                 end = handle_error('ERROR: Error running digiRipper!', count, end)
                                 continue
 
