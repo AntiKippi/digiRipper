@@ -30,6 +30,9 @@ generate_pdf = False
 # Define if the cached extra files should be used
 use_cache = True
 
+# Define if the script should prompt before starting the download
+interactive = True
+
 # Define how often the script should retry after an error occurs
 max_retries = 3
 
@@ -60,12 +63,16 @@ def download_content(content_node, book_url, cookies, dl_directory):
     if use_cache and os.path.isfile(extra_file) and os.path.getsize(extra_file) > 0:
         return
 
-    r = requests.get(book_url + content_node.attr['href'], headers=headers, cookies=cookies, stream=True)
-    r.raise_for_status()
-    with open(extra_file, 'wb') as f:
-        for chunk in r.iter_content(chunk_size=16384):
-            if chunk:  # filter out keep-alive new chunks
-                f.write(chunk)
+    try:
+        r = requests.get(book_url + content_node.attr['href'], headers=headers, cookies=cookies, stream=True)
+        r.raise_for_status()
+        with open(extra_file, 'wb') as f:
+            for chunk in r.iter_content(chunk_size=16384):
+                if chunk:  # filter out keep-alive new chunks
+                    f.write(chunk)
+    except Exception as e:
+        os.remove(extra_file)
+        raise e
 
 
 def download_content_from_directory(content_tree, directory_id, book_url, cookies, base_dir):
@@ -121,7 +128,7 @@ def handle_error(error_msg, retry_count, retry_end):
 
 
 def main():
-    global output_dir, generate_pdf, use_cache, max_retries, error_timeout
+    global output_dir, generate_pdf, use_cache, max_retries, error_timeout, interactive
 
     parser = argparse.ArgumentParser(description='A downloader for the digi4school open library')
     parser.add_argument('-s',
@@ -153,25 +160,43 @@ def main():
                         action='store_true',
                         dest='generate_pdf',
                         required=False,
+                        default=None,
                         help='Generate a pdf when all files are downloaded')
     parser.add_argument('-ng',
                         '--no-generate-pdf',
                         action='store_false',
                         dest='generate_pdf',
                         required=False,
+                        default=None,
                         help='Do NOT generate a pdf when all files are downloaded')
     parser.add_argument('-u',
                         '--use-cache',
                         action='store_true',
                         dest='use_cache',
                         required=False,
+                        default=None,
                         help='Use already downloaded (cached) extra files')
     parser.add_argument('-nu',
                         '--no-use-cache',
                         action='store_false',
                         dest='use_cache',
                         required=False,
+                        default=None,
                         help='Download extra files again')
+    parser.add_argument('-i',
+                        '--interactive',
+                        action='store_true',
+                        dest='interactive',
+                        required=False,
+                        default=None,
+                        help='Prompt before starting download')
+    parser.add_argument('-ni',
+                        '--no-interactive',
+                        action='store_false',
+                        dest='interactive',
+                        required=False,
+                        default=None,
+                        help='Do not prompt before starting download, start right away')
     parser.add_argument('-m',
                         '--max-retries',
                         type=int,
@@ -200,6 +225,8 @@ def main():
         generate_pdf = args.generate_pdf
     if args.use_cache is not None:
         use_cache = args.use_cache
+    if args.interactive is not None:
+        interactive = args.interactive
 
     if len(output_dir) < 1:
         output_dir = input("Output directory: ")
@@ -216,7 +243,9 @@ def main():
     print()
     print(str(book_count) + ' books')
     print("Output directory: " + output_dir)
-    input('Press [ENTER] to start the download')
+
+    if interactive:
+        input('Press [ENTER] to start the download')
 
     if start > 0:
         print("\nSkipping first %.2f %%..." % start)
@@ -229,7 +258,7 @@ def main():
         i += 1
         percent = (i * 100 / book_count)
 
-        if percent < start:
+        if percent <= start:
             continue
 
         if percent > end_percent:
@@ -318,10 +347,10 @@ def main():
                             Path(root_dir).mkdir(parents=True, exist_ok=True)
                             download_content_from_directory(book_content, root_dir_node.attr['id'], location, cookie_request.cookies, root_dir)
 
-                        if stop:
-                            stop_program()
-
                         for extra_book in extra_books:
+                            if stop:
+                                stop_program()
+                                
                             print('Downloading extra book "' + extra_book[0] + '"...')
                             r = requests.get(location + extra_book[0] + '/', headers=headers, cookies=cookie_request.cookies)
                             if 'IDRViewer' not in r.text:
@@ -329,7 +358,7 @@ def main():
                                 continue
                             if download_book(extra_book[1], orig_book_id + '/' + extra_book[0], cookie_str, os.path.join(extra_path, extra_book[1]), r).returncode != 0:
                                 end = handle_error('ERROR: Error running digiRipper!', count, end)
-                                continue
+                                raise ConnectionError('Error downloading extra book "' + extra_book[0] + '"!')
 
                         print('Downloaded extra content to "' + extra_path + '"')
                         r = requests.get(location + "1/", headers=headers, cookies=cookie_request.cookies)
