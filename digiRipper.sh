@@ -153,7 +153,7 @@ if [ -z "$BOOK_ID" ] || [ -z "$COOKIE" ] || [ -z "$OUTPUT_DIRECTORY" ] || [ -z "
     exit 1
 fi
 
-OUTPUT_DIRECTORY=$(eval echo "$OUTPUT_DIRECTORY")
+OUTPUT_DIRECTORY=$(eval "echo \"$OUTPUT_DIRECTORY\"")
 PROTOCOL='https://'
 HOST='a.digi4school.at'
 BASE_FOLDER="$HOST/ebook/$BOOK_ID"

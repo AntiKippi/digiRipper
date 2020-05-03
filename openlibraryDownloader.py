@@ -89,6 +89,7 @@ def download_content_from_directory(content_tree, directory_id, book_url, cookie
 
 
 def download_book(book_title, book_id, cookie_str, book_dir, book_response):
+    book_response.encoding = encoding
     Path(book_dir).mkdir(parents=True, exist_ok=True)
     book_head = PyQuery(book_response.text)('head')
     with open(os.path.join(book_dir, "info.txt"), "a", encoding=encoding) as f:
@@ -320,8 +321,7 @@ def main():
                 r.encoding = encoding
                 if r.status_code == 200:
                     if 'IDRViewer' not in r.text and '<div id="content">' in r.text:
-                        book_id += "/1"
-                        print('Found extra content, setting book_id to ' + str(book_id))
+                        print('Found extra content!')
                         print('Downloading extra content...')
 
                         book_content = PyQuery(r.text)("#content")
@@ -347,30 +347,58 @@ def main():
                             Path(root_dir).mkdir(parents=True, exist_ok=True)
                             download_content_from_directory(book_content, root_dir_node.attr['id'], location, cookie_request.cookies, root_dir)
 
+                        print('Checking book_id ' + str(book_id) + '/1...')
+                        r = requests.get(location + "1/", headers=headers, cookies=cookie_request.cookies)
+
+                        if 'IDRViewer' not in r.text:
+                            print('WARNING: Book "' + book_id + '/1" looks weird (contains no "IDRViewer"! Checking extra books...')
+                            if len(extra_books) == 1:
+
+                                # COMPATIBILITY
+                                if os.path.exists(os.path.join(extra_path, extra_books[0][1])):
+                                    print('INFO: For compatibility reasons, normal book download will be skipped!')
+                                    book_id = None
+                                else:
+                                    book_id = orig_book_id + '/' + extra_books[0][0]
+                                    print('Found one extra book, setting book_id to ' + str(book_id))
+                                    r = requests.get(location + extra_books[0][0] + '/', headers=headers, cookies=cookie_request.cookies)
+                                    extra_books.pop(0)
+                            elif len(extra_books) > 1:
+                                print('WARNING: Found more than one extra book, skipping normal book download!')
+                                book_id = None
+                            else:
+                                print('WARNING: Found no extra book, skipping normal book download!')
+                                book_id = None
+                        else:
+                            book_id += '/1'
+                            print('Setting book_id to ' + str(book_id))
+                            r = requests.get(location + '1/', headers=headers, cookies=cookie_request.cookies)
+
                         for extra_book in extra_books:
                             if stop:
                                 stop_program()
                                 
                             print('Downloading extra book "' + extra_book[0] + '"...')
-                            r = requests.get(location + extra_book[0] + '/', headers=headers, cookies=cookie_request.cookies)
-                            if 'IDRViewer' not in r.text:
+                            er = requests.get(location + extra_book[0] + '/', headers=headers, cookies=cookie_request.cookies)
+                            if 'IDRViewer' not in er.text:
                                 print('WARNING: Extra book "' + extra_book[0] + '" looks weird (contains no "IDRViewer"! Skipping...')
                                 continue
-                            if download_book(extra_book[1], orig_book_id + '/' + extra_book[0], cookie_str, os.path.join(extra_path, extra_book[1]), r).returncode != 0:
+                            if download_book(extra_book[1], orig_book_id + '/' + extra_book[0], cookie_str, os.path.join(extra_path, extra_book[1]), er).returncode != 0:
                                 end = handle_error('ERROR: Error running digiRipper!', count, end)
                                 raise ConnectionError('Error downloading extra book "' + extra_book[0] + '"!')
-
                         print('Downloaded extra content to "' + extra_path + '"')
-                        r = requests.get(location + "1/", headers=headers, cookies=cookie_request.cookies)
                 else:
                     print('WARNING: Got wrong response code from book page, skipping check for extra material!')
 
                 if stop:
                     stop_program()
 
-                if download_book(title, book_id, cookie_str, current_path, r).returncode != 0:
-                    end = handle_error('ERROR: Error running digiRipper!', count, end)
-                    continue
+                if book_id is not None:
+                    if download_book(title, book_id, cookie_str, current_path, r).returncode != 0:
+                        end = handle_error('ERROR: Error running digiRipper!', count, end)
+                        continue
+                else:
+                    Path(os.path.join(current_path, 'generate-pdf.sh')).touch()
 
             except Exception as e:
                 end = handle_error('ERROR: An exception was thrown: ' + str(e), count, end)
