@@ -10,7 +10,7 @@ To use this script you first need to edit the configuration parameters or pass c
 Usage: `digiRipper.sh [-s] [-d] [-f] [-g] [-n <BOOK NAME>] [-i <BOOK ID>] [-c <COOKIE HEADER>] [-o <OUTPUT DIRECTORY] [-p ]`
 
 `-s`: Be silent (non-interactive)  
-`-d`: Be dirty (do not cleanup)  
+`-d`: Be dirty (do not clean up)  
 `-f`: Use fresh files (do not use cache)  
 `-g`: Do not generate a pdf file (also implies -d)  
 `-n <BOOK NAME>`: The name of the book, used for the resulting PDF file name.  
@@ -57,7 +57,7 @@ The script depends on the following programs:
 
 ## Bugs
 
-If you find a bug please just create a issue at this repository.
+If you find a bug please just create an issue at this repository.
 
 ## Credits
 
@@ -82,12 +82,12 @@ To learn more about the available command line arguments, run `openlibraryDownlo
 
 `use_cache`: Defines if the extra files should be always downloaded or only if they do not exist. Note that this parameter only affects the extra files, the digiRipper cache will always be used.
 
-`max_retries`: Define how often the script should retry the operation after an error occured.
+`max_retries`: Define how often the script should retry the operation after an error occurred.
 
-`error_timeout`: Define how long the script should wait after it encountered an error. This is particulary useful, because sometimes the error is a simple network error which will resolve itself in a few seconds. 
+`error_timeout`: Define how long the script should wait after it encountered an error. This is particularly useful, because sometimes the error is a simple network error which will resolve itself in a few seconds. 
 
 ### Execution
 After you have set the configuration parameters correctly and run the script the whole library including extra material will be downloaded to the output directory. If you want to pause and resume at a particular point, just send a USR1 signal to the script, then it will stop at a suitable place. If you want to resume, just run the script again, all files are cached (if cache is enabled) and will not be downloaded a second time.
 
 # Disclaimer
-All the scripts here are only provied for educational purposes. Usage of them could be legally disallowed in your county, so always check your local law. I am not responsible for anything **you** decide to do with my scripts.
+All the scripts here are only provided for educational purposes. Usage of them could be legally disallowed in your county, so always check your local law. I am not responsible for anything **you** decide to do with my scripts.
