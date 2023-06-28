@@ -100,10 +100,7 @@ def download_book(book_title, book_id, cookie_str, book_dir, book_response):
         f.write(os.linesep + u"Meta Title: %s" % str(book_head('meta[name="title"]').attr['content']))
         f.write(os.linesep + u"SBNr: %s" % str(book_head('meta[name="sbnr"]').attr['content']))
 
-    if generate_pdf:
-        return subprocess.run(['./digiRipper.sh', '-s', '-d', '-n', book_title, '-i', book_id, '-c', cookie_str, '-o', book_dir])
-    else:
-        return subprocess.run(['./digiRipper.sh', '-s', '-g', '-n', book_title, '-i', book_id, '-c', cookie_str, '-o', book_dir])
+    return subprocess.run(['./digiRipper.sh', '-s', '-d' if generate_pdf else 'g', '-n', book_title, '-i', book_id, '-c', cookie_str, '-o', book_dir])
 
 
 # Stop when receiving USR1 signal

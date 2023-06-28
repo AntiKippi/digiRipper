@@ -1,7 +1,7 @@
 # digiRipper
 A small bash script to download books from digi4school in PDF format.
 
-## Usage:
+## Usage
 
 To use this script you first need to edit the configuration parameters or pass command line arguments.
 
